@@ -1,14 +1,58 @@
+//react imports
+import React, { useState, useEffect } from "react";
+
 //prime-react imports
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Checkbox } from "primereact/checkbox";
 import { Button } from "primereact/button";
+import { Paginator } from "primereact/paginator";
 
-//temporary empty data just to avoid error when rendering.
-const dummyData: any[] = [];
+//for fetching table data from API
+import axios from "axios";
 
 export const ArtTable = () => {
-  //Just for illustration, actual state/data will be added later.
+  //state to store fetched data for current page.
+  const [data, setData] = useState<any[]>([]);
+
+  //loading state for modal.
+  const [loading, setLoading] = useState<boolean>(false);
+
+  //to indicate current page selected at the bottom of table.
+  const [currentPage, setCurrentPage] = useState<number>(1); //track page
+
+  //used by paginator
+  const totalPages = 10770;
+
+  //fetch first page data only once(on mount).
+  useEffect(() => {
+    fetchData(currentPage); //firstPage = 1
+  }, [currentPage]);
+
+  //function to fetch data from API for given page.
+  const fetchData = async (pageNumber: number) => {
+    try {
+      setLoading(true); //show modal(indicating message).
+
+      const response = await axios.get(
+        `https://api.artic.edu/api/v1/artworks?page=${pageNumber}`
+      );
+
+      const tableData = response.data.data; //API returns rows inside "data".
+
+      setData(tableData); //set the rows to table
+    } catch (error) {
+      console.error("Error fetching table data:", error);
+      setData([]); //if error, keep table empty
+    } finally {
+      setLoading(false); //hide modal
+    }
+  };
+
+  const onPageChange = (e: any) => {
+    setCurrentPage(e.page + 1); //Prime-react uses 0-based index
+  };
+
   //First column:checkbox + chevron
   const selectionHeaderTemplate = () => {
     return (
@@ -34,7 +78,16 @@ export const ArtTable = () => {
 
   return (
     <div className="p-4">
-      <DataTable value={dummyData}>
+      {/* loading modal with black transparent background */}
+      {loading && (
+        <div className="fixed inset-0 bg-white bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white text-black p-4 rounded shadow">
+            API is being called, data is loading from server
+          </div>
+        </div>
+      )}
+
+      <DataTable value={data} emptyMessage="No available data">
         {/* ❌First column:selection checkbox+overlay chevron */}
         <Column
           body={() => <Checkbox onChange={() => {}} checked={false} />}
@@ -50,6 +103,16 @@ export const ArtTable = () => {
         <Column field="date_start" header="Date Start" />
         <Column field="date_end" header="Date End" />
       </DataTable>
+
+      {/* Paginator below table */}
+      <div className="mt-4 w-full max-w-xl mx-auto">
+        <Paginator
+          first={(currentPage - 1) * 12} // index of first record
+          rows={12} // rows per page
+          totalRecords={totalPages * 12} // total rows = pages × 12
+          onPageChange={onPageChange} // updates currentPage state
+        />
+      </div>
     </div>
   );
 };
